@@ -35,14 +35,14 @@ public:
         OP_CLC, OP_CLD, OP_CLI, OP_CLV, OP_CMP, OP_CPX, OP_CPY,
         OP_DEC, OP_DEX, OP_DEY,
         OP_EOR, OP_INC, OP_INX, OP_INY,
-		OP_JMP, OP_JSR,
-		OP_LDA, OP_LDX, OP_LDY, OP_LSR,
-		OP_NOP,
-		OP_ORA,
-		OP_PHA, OP_PHP, OP_PLA, OP_PLP,
-		OP_ROL, OP_ROR, OP_RTI, OP_RTS,
-		OP_SBC, OP_SEC, OP_SED, OP_SEI, OP_STA, OP_STX, OP_STY,
-		OP_TAX, OP_TAY, OP_TSX, OP_TXA, OP_TXS, OP_TYA
+        OP_JMP, OP_JSR,
+        OP_LDA, OP_LDX, OP_LDY, OP_LSR,
+        OP_NOP,
+        OP_ORA,
+        OP_PHA, OP_PHP, OP_PLA, OP_PLP,
+        OP_ROL, OP_ROR, OP_RTI, OP_RTS,
+        OP_SBC, OP_SEC, OP_SED, OP_SEI, OP_STA, OP_STX, OP_STY,
+        OP_TAX, OP_TAY, OP_TSX, OP_TXA, OP_TXS, OP_TYA
     };
 
     enum addr_mode {
@@ -95,12 +95,17 @@ private:
     uint8_t Pop8(void);
     bool IsPageCrossed(uint16_t new_addr, uint16_t old_addr);
     void SetNZFlag(uint8_t val);
+    void SetNFlag(uint8_t val);
+    void SetZFlag(uint8_t val);
     uint64_t GetBranchCycles(uint8_t offset);
     void Branch(int8_t offset, bool cond);
+
+    void AND(uint16_t addr);
 
     void BCC(int8_t offset);
     void BCS(int8_t offset);
     void BEQ(int8_t offset);
+    void BIT(uint16_t addr);
     void BMI(int8_t offset);
     void BNE(int8_t offset);
     void BPL(int8_t offset);
@@ -109,6 +114,7 @@ private:
 
     void CLC(void);
     void CLD(void);
+    void CMP(uint16_t addr);
 
     void JMP(uint16_t addr);
     void JSR(uint16_t addr);
@@ -116,8 +122,15 @@ private:
     void LDA(uint16_t addr);
     void LDX(uint16_t addr);
 
+    void PHP(void);
+    void PLA(void);
+
+    void RTS(void);
+
     void SEC(void);
+    void SED(void);
     void SEI(void);
+    void STA(uint16_t addr);
     void STX(uint16_t addr);
 };
 

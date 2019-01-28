@@ -51,8 +51,8 @@ void Cpu::Step(void) {
             pageCrossed = IsPageCrossed(addr, operand);
             break;
         case MODE_IMMEDIATE:
-            operand = mmu_->Read8(reg_.PC + 1);
-            addr = operand;
+            addr = reg_.PC + 1;
+            operand = mmu_->Read8(addr);
             break;
         case MODE_INDIRECT:
             operand = mmu_->Read16(reg_.PC + 1);
@@ -78,11 +78,11 @@ void Cpu::Step(void) {
             break;
         case MODE_ZEROPAGE_X_INDEXED:
             operand = mmu_->Read8(reg_.PC + 1);
-            addr = operand + reg_.X;
+            addr = (operand + reg_.X) & 0xFF;
             break;
         case MODE_ZEROPAGE_Y_INDEXED:
             operand = mmu_->Read8(reg_.PC + 1);
-            addr = operand + reg_.Y;
+            addr = (operand + reg_.Y) & 0xFF;
             break;
         default:
             break;
@@ -124,6 +124,9 @@ void Cpu::Step(void) {
         ++cycles_;
 
     switch (opcode_table_[opcode].op) {
+        case OP_AND:
+            AND(addr);
+            break;
         case OP_BCC:
             BCC(addr);
             break;
@@ -132,6 +135,9 @@ void Cpu::Step(void) {
             break;
         case OP_BEQ:
             BEQ(addr);
+            break;
+        case OP_BIT:
+            BIT(addr);
             break;
         case OP_BMI:
             BMI(addr);
@@ -154,6 +160,9 @@ void Cpu::Step(void) {
         case OP_CLD:
             CLD();
             break;
+        case OP_CMP:
+            CMP(addr);
+            break;
         case OP_JMP:
             JMP(addr);
             break;
@@ -169,11 +178,26 @@ void Cpu::Step(void) {
         case OP_NOP:
             // do nothing
             break;
+        case OP_PHP:
+            PHP();
+            break;
+        case OP_PLA:
+            PLA();
+            break;
+        case OP_RTS:
+            RTS();
+            break;
         case OP_SEC:
             SEC();
             break;
+        case OP_SED:
+            SED();
+            break;
         case OP_SEI:
             SEI();
+            break;
+        case OP_STA:
+            STA(addr);
             break;
         case OP_STX:
             STX(addr);
@@ -205,7 +229,7 @@ void Cpu::Push8(uint8_t val) {
 }
 
 uint8_t Cpu::Pop8(void) {
-    return mmu_->Read8(reg_.SP++);
+    return mmu_->Read8(++reg_.SP);
 }
 
 bool Cpu::IsPageCrossed(uint16_t new_addr, uint16_t old_addr) {
@@ -213,11 +237,23 @@ bool Cpu::IsPageCrossed(uint16_t new_addr, uint16_t old_addr) {
 }
 
 void Cpu::SetNZFlag(uint8_t val) {
+    SetNFlag(val);
+    SetZFlag(val);
+}
+
+void Cpu::SetNFlag(uint8_t val) {
     if (val & 0x80) {
         SetFlag(F_NEGATIVE);
+    } else {
+        ClearFlag(F_NEGATIVE);
     }
+}
+
+void Cpu::SetZFlag(uint8_t val) {
     if (val == 0) {
         SetFlag(F_ZERO);
+    } else {
+        ClearFlag(F_ZERO);
     }
 }
 
@@ -238,6 +274,12 @@ void Cpu::Branch(int8_t offset, bool cond) {
 }
 
 
+void Cpu::AND(uint16_t addr) {
+    reg_.A &= mmu_->Read16(addr);
+    SetNZFlag(reg_.A);
+}
+
+
 void Cpu::BCC(int8_t offset) {
     Branch(offset, !GetFlag(F_CARRY));
 }
@@ -248,6 +290,17 @@ void Cpu::BCS(int8_t offset) {
 
 void Cpu::BEQ(int8_t offset) {
     Branch(offset, GetFlag(F_ZERO));
+}
+
+void Cpu::BIT(uint16_t addr) {
+    uint8_t val = mmu_->Read8(addr);
+    SetNFlag(val);
+    if (val & 0x40) {
+        SetFlag(F_OVERFLOW);
+    } else {
+        ClearFlag(F_OVERFLOW);
+    }
+    SetZFlag(val & reg_.A);
 }
 
 void Cpu::BMI(int8_t offset) {
@@ -279,32 +332,69 @@ void Cpu::CLD(void) {
     ClearFlag(F_DECIMAL);
 }
 
+void Cpu::CMP(uint16_t addr) {
+    uint8_t val = mmu_->Read8(addr);
+    uint8_t diff = reg_.A - val;
+    SetNZFlag(diff);
+    if (reg_.A >= val) {
+        SetFlag(F_CARRY);
+    } else {
+        ClearFlag(F_CARRY);
+    }
+}
+
+
 void Cpu::JMP(uint16_t addr) {
     reg_.PC = addr;
 }
 
 void Cpu::JSR(uint16_t addr) {
     Push8(reg_.PC);
-    Push8(reg_.PC + 1);
+    Push8(reg_.PC >> 8);
     reg_.PC = addr;
 }
 
+
 void Cpu::LDA(uint16_t addr) {
-    reg_.A = addr;
+    reg_.A = mmu_->Read8(addr);
     SetNZFlag(reg_.A);
 }
 
 void Cpu::LDX(uint16_t addr) {
-    reg_.X = addr;
+    reg_.X = mmu_->Read8(addr);
     SetNZFlag(reg_.X);
 }
+
+
+void Cpu::PHP(void) {
+    Push8(reg_.P | F_BH | F_BL);
+}
+
+void Cpu::PLA(void) {
+    reg_.A = Pop8();
+    SetNZFlag(reg_.A);
+}
+
+
+void Cpu::RTS(void) {
+    reg_.PC = (Pop8() << 8) | Pop8();
+}
+
 
 void Cpu::SEC(void) {
     SetFlag(F_CARRY);
 }
 
+void Cpu::SED(void) {
+    SetFlag(F_DECIMAL);
+}
+
 void Cpu::SEI(void) {
     SetFlag(F_INT_DISABLE);
+}
+
+void Cpu::STA(uint16_t addr) {
+    mmu_->Write8(addr, reg_.A);
 }
 
 void Cpu::STX(uint16_t addr) {
