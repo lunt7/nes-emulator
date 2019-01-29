@@ -114,7 +114,10 @@ private:
 
     void CLC(void);
     void CLD(void);
+    void CLV(void);
     void CMP(uint16_t addr);
+
+    void EOR(uint16_t addr);
 
     void JMP(uint16_t addr);
     void JSR(uint16_t addr);
@@ -122,8 +125,12 @@ private:
     void LDA(uint16_t addr);
     void LDX(uint16_t addr);
 
+    void ORA(uint16_t addr);
+
+    void PHA(void);
     void PHP(void);
     void PLA(void);
+    void PLP(void);
 
     void RTS(void);
 

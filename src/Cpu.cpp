@@ -160,8 +160,14 @@ void Cpu::Step(void) {
         case OP_CLD:
             CLD();
             break;
+        case OP_CLV:
+            CLV();
+            break;
         case OP_CMP:
             CMP(addr);
+            break;
+        case OP_EOR:
+            EOR(addr);
             break;
         case OP_JMP:
             JMP(addr);
@@ -178,11 +184,20 @@ void Cpu::Step(void) {
         case OP_NOP:
             // do nothing
             break;
+        case OP_ORA:
+            ORA(addr);
+            break;
+        case OP_PHA:
+            PHA();
+            break;
         case OP_PHP:
             PHP();
             break;
         case OP_PLA:
             PLA();
+            break;
+        case OP_PLP:
+            PLP();
             break;
         case OP_RTS:
             RTS();
@@ -332,6 +347,10 @@ void Cpu::CLD(void) {
     ClearFlag(F_DECIMAL);
 }
 
+void Cpu::CLV(void) {
+    ClearFlag(F_OVERFLOW);
+}
+
 void Cpu::CMP(uint16_t addr) {
     uint8_t val = mmu_->Read8(addr);
     uint8_t diff = reg_.A - val;
@@ -341,6 +360,12 @@ void Cpu::CMP(uint16_t addr) {
     } else {
         ClearFlag(F_CARRY);
     }
+}
+
+
+void Cpu::EOR(uint16_t addr) {
+    reg_.A ^= mmu_->Read8(addr);
+    SetNZFlag(reg_.A);
 }
 
 
@@ -366,6 +391,16 @@ void Cpu::LDX(uint16_t addr) {
 }
 
 
+void Cpu::ORA(uint16_t addr) {
+    reg_.A |= mmu_->Read8(addr);
+    SetNZFlag(reg_.A);
+}
+
+
+void Cpu::PHA(void) {
+    Push8(reg_.A);
+}
+
 void Cpu::PHP(void) {
     Push8(reg_.P | F_BH | F_BL);
 }
@@ -373,6 +408,11 @@ void Cpu::PHP(void) {
 void Cpu::PLA(void) {
     reg_.A = Pop8();
     SetNZFlag(reg_.A);
+}
+
+void Cpu::PLP(void) {
+    reg_.P = (reg_.P & (F_BH | F_BL)) |
+             (Pop8() & ~(F_BH | F_BL));
 }
 
 
