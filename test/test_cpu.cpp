@@ -31,7 +31,7 @@ TEST(CpuTest, nestest) {
     Nes nes;
     nes.PowerOn();
     // nes.Run("Donkey Kong (World) (Rev A).nes");
-    nes.Run("nestest.nes", Nes::EMU_MODE_AUTOMATED);
+    nes.Run("../../roms/nestest.nes", Nes::EMU_MODE_AUTOMATED);
 
     while (getline(ref_log, ref)) {
         istringstream iss(ref);
