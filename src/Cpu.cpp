@@ -1,9 +1,8 @@
 #include "Cpu.h"
 #include "Nes.h"
 #include "Mmu.h"
+#include "Logging.h"
 #include <cstring>
-
-#include <iostream>
 #include <iomanip>
 #include <sstream>
 
@@ -115,7 +114,7 @@ void Cpu::Step(void) {
        << "SP:"   << std::setw(2) << (int)reg_.SP  << " "
        << "CPUC:" << std::dec << cycles_;
 
-    std::cout << ss.str() << std::endl;
+    LOG_DEBUG(ss.str());
 
 
     reg_.PC += opcode_table_[opcode].size;
@@ -218,7 +217,7 @@ void Cpu::Step(void) {
             STX(addr);
             break;
         default:
-            std::cout << "Illegal instructions" << std::endl;
+            LOG_DEBUG("Illegal instructions");
             break;
     }
 }
