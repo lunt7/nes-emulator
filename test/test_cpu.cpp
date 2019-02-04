@@ -1,25 +1,9 @@
 #include "Nes.h"
+#include "Logging.h"
 #include <gtest/gtest.h>
 #include <iostream>
-#include "Logging.h"
 
 using namespace std;
-
-// class CpuTest : public testing::Test {
-//     protected:
-//         void SetUp(void) override {
-
-//         }
-
-
-
-//         //Nes nes2 = nes;
-// };
-
-// TEST_F(CpuTest, nestest) {
-
-//     EXPECT_TRUE(true);
-// }
 
 TEST(CpuTest, nestest) {
     string ref, uut, word;
@@ -30,7 +14,6 @@ TEST(CpuTest, nestest) {
 
     Nes nes;
     nes.PowerOn();
-    // nes.Run("Donkey Kong (World) (Rev A).nes");
     nes.Run("../../roms/nestest.nes", Nes::EMU_MODE_AUTOMATED);
 
     while (getline(ref_log, ref)) {

@@ -87,12 +87,15 @@ private:
     Nes* nes_;
     Mmu* mmu_;
     registers reg_;
+    addr_mode mode_;
     static const opcode_t opcode_table_[256];
 
     uint64_t cycles_;
 
     void Push8(uint8_t val);
     uint8_t Pop8(void);
+    void Push16(uint16_t val);
+    uint16_t Pop16(void);
     bool IsPageCrossed(uint16_t new_addr, uint16_t old_addr);
     void SetNZFlag(uint8_t val);
     void SetNFlag(uint8_t val);
@@ -103,6 +106,7 @@ private:
 
     void ADC(uint16_t addr);
     void AND(uint16_t addr);
+    void ASL(uint16_t addr);
 
     void BCC(int8_t offset);
     void BCS(int8_t offset);
@@ -121,11 +125,13 @@ private:
     void CPX(uint16_t addr);
     void CPY(uint16_t addr);
 
+    void DEC(uint16_t addr);
     void DEX(void);
     void DEY(void);
 
     void EOR(uint16_t addr);
 
+    void INC(uint16_t addr);
     void INX(void);
     void INY(void);
 
@@ -135,6 +141,7 @@ private:
     void LDA(uint16_t addr);
     void LDX(uint16_t addr);
     void LDY(uint16_t addr);
+    void LSR(uint16_t addr);
 
     void ORA(uint16_t addr);
 
@@ -143,6 +150,9 @@ private:
     void PLA(void);
     void PLP(void);
 
+    void ROL(uint16_t addr);
+    void ROR(uint16_t addr);
+    void RTI(void);
     void RTS(void);
 
     void SBC(uint16_t addr);
@@ -151,6 +161,7 @@ private:
     void SEI(void);
     void STA(uint16_t addr);
     void STX(uint16_t addr);
+    void STY(uint16_t addr);
 
     void TAX(void);
     void TAY(void);

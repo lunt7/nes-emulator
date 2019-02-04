@@ -33,8 +33,9 @@ void Cpu::Step(void) {
     bool pageCrossed = false;
 
     uint8_t opcode = mmu_->Read8(reg_.PC);
+    mode_ = opcode_table_[opcode].mode;
 
-    switch (opcode_table_[opcode].mode) {
+    switch (mode_) {
         case MODE_ABSOLUTE:
             operand = mmu_->Read16(reg_.PC + 1);
             addr = operand;
@@ -59,12 +60,12 @@ void Cpu::Step(void) {
             break;
         case MODE_X_INDEXED_INDIRECT:
             operand = mmu_->Read8(reg_.PC + 1);
-            addr = mmu_->Read16(operand + reg_.X);
+            addr = mmu_->Read16_S((operand + reg_.X) & 0xFF);
             break;
         case MODE_INDIRECT_Y_INDEXED:
             operand = mmu_->Read8(reg_.PC + 1);
             addr = mmu_->Read16(operand) + reg_.Y;
-            pageCrossed = IsPageCrossed(addr, operand);
+            pageCrossed = IsPageCrossed(addr, (mmu_->Read16(operand) & 0xFF00) | ((mmu_->Read16(operand) + reg_.Y) & 0xFF));
             break;
         case MODE_RELATIVE:
             operand = mmu_->Read8(reg_.PC + 1);
@@ -124,6 +125,7 @@ void Cpu::Step(void) {
     switch (opcode_table_[opcode].op) {
         case OP_ADC: ADC(addr); break;
         case OP_AND: AND(addr); break;
+        case OP_ASL: ASL(addr); break;
 
         case OP_BCC: BCC(addr); break;
         case OP_BCS: BCS(addr); break;
@@ -142,11 +144,13 @@ void Cpu::Step(void) {
         case OP_CPX: CPX(addr); break;
         case OP_CPY: CPY(addr); break;
 
+        case OP_DEC: DEC(addr); break;
         case OP_DEX: DEX();     break;
         case OP_DEY: DEY();     break;
 
         case OP_EOR: EOR(addr); break;
 
+        case OP_INC: INC(addr); break;
         case OP_INX: INX();     break;
         case OP_INY: INY();     break;
 
@@ -156,6 +160,7 @@ void Cpu::Step(void) {
         case OP_LDA: LDA(addr); break;
         case OP_LDX: LDX(addr); break;
         case OP_LDY: LDY(addr); break;
+        case OP_LSR: LSR(addr); break;
 
         case OP_NOP:    // do nothing
             break;
@@ -167,6 +172,9 @@ void Cpu::Step(void) {
         case OP_PLA: PLA();     break;
         case OP_PLP: PLP();     break;
 
+        case OP_ROL: ROL(addr); break;
+        case OP_ROR: ROR(addr); break;
+        case OP_RTI: RTI();     break;
         case OP_RTS: RTS();     break;
 
         case OP_SBC: SBC(addr); break;
@@ -175,6 +183,7 @@ void Cpu::Step(void) {
         case OP_SEI: SEI();     break;
         case OP_STA: STA(addr); break;
         case OP_STX: STX(addr); break;
+        case OP_STY: STY(addr); break;
 
         case OP_TAX: TAX();     break;
         case OP_TAY: TAY();     break;
@@ -213,6 +222,17 @@ void Cpu::Push8(uint8_t val) {
 uint8_t Cpu::Pop8(void) {
     ++reg_.SP;
     return mmu_->Read8(0x100 + reg_.SP);
+}
+
+void Cpu::Push16(uint16_t val) {
+    Push8(val >> 8);
+    Push8(val);
+}
+
+uint16_t Cpu::Pop16(void) {
+    uint16_t val_l = Pop8();
+    uint16_t val_h = Pop8() << 8;
+    return (val_h | val_l);
 }
 
 bool Cpu::IsPageCrossed(uint16_t new_addr, uint16_t old_addr) {
@@ -291,6 +311,28 @@ void Cpu::AND(uint16_t addr) {
     SetNZFlag(reg_.A);
 }
 
+void Cpu::ASL(uint16_t addr) {
+    if (mode_ == MODE_ACCUMULATOR) {
+        if (reg_.A & 0x80) {
+            SetFlag(F_CARRY);
+        } else {
+            ClearFlag(F_CARRY);
+        }
+        reg_.A <<= 1;
+        SetNZFlag(reg_.A);
+    } else {
+        uint8_t val = mmu_->Read8(addr);
+        if (val & 0x80) {
+            SetFlag(F_CARRY);
+        } else {
+            ClearFlag(F_CARRY);
+        }
+        val <<= 1;
+        mmu_->Write8(addr, val);
+        SetNZFlag(val);
+    }
+}
+
 
 void Cpu::BCC(int8_t offset) {
     Branch(offset, !GetFlag(F_CARRY));
@@ -364,6 +406,12 @@ void Cpu::CPY(uint16_t addr) {
 }
 
 
+void Cpu::DEC(uint16_t addr) {
+    uint8_t val = mmu_->Read8(addr) - 1;
+    mmu_->Write8(addr, val);
+    SetNZFlag(val);
+}
+
 void Cpu::DEX(void) {
     SetNZFlag(--reg_.X);
 }
@@ -379,6 +427,12 @@ void Cpu::EOR(uint16_t addr) {
 }
 
 
+void Cpu::INC(uint16_t addr) {
+    uint8_t val = mmu_->Read8(addr) + 1;
+    mmu_->Write8(addr, val);
+    SetNZFlag(val);
+}
+
 void Cpu::INX(void) {
     SetNZFlag(++reg_.X);
 }
@@ -393,9 +447,7 @@ void Cpu::JMP(uint16_t addr) {
 }
 
 void Cpu::JSR(uint16_t addr) {
-    uint16_t ret_addr = reg_.PC - 1;
-    Push8(ret_addr >> 8);
-    Push8(ret_addr);
+    Push16(reg_.PC - 1);
     reg_.PC = addr;
 }
 
@@ -413,6 +465,28 @@ void Cpu::LDX(uint16_t addr) {
 void Cpu::LDY(uint16_t addr) {
     reg_.Y = mmu_->Read8(addr);
     SetNZFlag(reg_.Y);
+}
+
+void Cpu::LSR(uint16_t addr) {
+    if (mode_ == MODE_ACCUMULATOR) {
+        if (reg_.A & 0x01) {
+            SetFlag(F_CARRY);
+        } else {
+            ClearFlag(F_CARRY);
+        }
+        reg_.A >>= 1;
+        SetNZFlag(reg_.A);
+    } else {
+        uint8_t val = mmu_->Read8(addr);
+        if (val & 0x01) {
+            SetFlag(F_CARRY);
+        } else {
+            ClearFlag(F_CARRY);
+        }
+        val >>= 1;
+        mmu_->Write8(addr, val);
+        SetNZFlag(val);
+    }
 }
 
 
@@ -441,10 +515,60 @@ void Cpu::PLP(void) {
 }
 
 
+void Cpu::ROL(uint16_t addr) {
+    uint8_t c = GetFlag(F_CARRY);
+    if (mode_ == MODE_ACCUMULATOR) {
+        if (reg_.A & 0x80) {
+            SetFlag(F_CARRY);
+        } else {
+            ClearFlag(F_CARRY);
+        }
+        reg_.A = (reg_.A << 1) | c;
+        SetNZFlag(reg_.A);
+    } else {
+        uint8_t val = mmu_->Read8(addr);
+        if (val & 0x80) {
+            SetFlag(F_CARRY);
+        } else {
+            ClearFlag(F_CARRY);
+        }
+        val = (val << 1) | c;
+        mmu_->Write8(addr, val);
+        SetNZFlag(val);
+    }
+}
+
+void Cpu::ROR(uint16_t addr) {
+    uint8_t c = GetFlag(F_CARRY);
+    if (mode_ == MODE_ACCUMULATOR) {
+        if (reg_.A & 0x01) {
+            SetFlag(F_CARRY);
+        } else {
+            ClearFlag(F_CARRY);
+        }
+        reg_.A = (c << 7) | (reg_.A >> 1);
+        SetNZFlag(reg_.A);
+    } else {
+        uint8_t val = mmu_->Read8(addr);
+        if (val & 0x01) {
+            SetFlag(F_CARRY);
+        } else {
+            ClearFlag(F_CARRY);
+        }
+        val = (c << 7) | (val >> 1);
+        mmu_->Write8(addr, val);
+        SetNZFlag(val);
+    }
+}
+
+void Cpu::RTI(void) {
+    reg_.P = (reg_.P & (F_BH | F_BL)) |
+             (Pop8() & ~(F_BH | F_BL));
+    reg_.PC = Pop16();
+}
+
 void Cpu::RTS(void) {
-    uint16_t pch = Pop8();
-    uint16_t pcl = Pop8() << 8;
-    reg_.PC = (pch | pcl) + 1;
+    reg_.PC = Pop16() + 1;
 }
 
 
@@ -486,6 +610,11 @@ void Cpu::STA(uint16_t addr) {
 void Cpu::STX(uint16_t addr) {
     mmu_->Write8(addr, reg_.X);
 }
+
+void Cpu::STY(uint16_t addr) {
+    mmu_->Write8(addr, reg_.Y);
+}
+
 
 
 void Cpu::TAX(void) {
@@ -736,7 +865,7 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0xCB */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0xCC */ { OP_CPY,     "CPY",            MODE_ABSOLUTE,           3, 4 },
     /* 0xCD */ { OP_CMP,     "CMP",            MODE_ABSOLUTE,           3, 4 },
-    /* 0xCE */ { OP_DEC,     "DEC",            MODE_ABSOLUTE,           3, 3 },
+    /* 0xCE */ { OP_DEC,     "DEC",            MODE_ABSOLUTE,           3, 6 },
     /* 0xCF */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
 
     /* 0xD0 */ { OP_BNE,     "BNE",            MODE_RELATIVE,           2, 2 },
