@@ -69,7 +69,6 @@ void Cpu::Step(void) {
         case MODE_RELATIVE:
             operand = mmu_->Read8(reg_.PC + 1);
             addr = operand;
-            pageCrossed = IsPageCrossed(reg_.PC + (int8_t)operand, reg_.PC);
             break;
         case MODE_ZEROPAGE:
             operand = mmu_->Read8(reg_.PC + 1);
@@ -123,99 +122,67 @@ void Cpu::Step(void) {
         ++cycles_;
 
     switch (opcode_table_[opcode].op) {
-        case OP_AND:
-            AND(addr);
+        case OP_ADC: ADC(addr); break;
+        case OP_AND: AND(addr); break;
+
+        case OP_BCC: BCC(addr); break;
+        case OP_BCS: BCS(addr); break;
+        case OP_BEQ: BEQ(addr); break;
+        case OP_BIT: BIT(addr); break;
+        case OP_BMI: BMI(addr); break;
+        case OP_BNE: BNE(addr); break;
+        case OP_BPL: BPL(addr); break;
+        case OP_BVC: BVC(addr); break;
+        case OP_BVS: BVS(addr); break;
+
+        case OP_CLC: CLC();     break;
+        case OP_CLD: CLD();     break;
+        case OP_CLV: CLV();     break;
+        case OP_CMP: CMP(addr); break;
+        case OP_CPX: CPX(addr); break;
+        case OP_CPY: CPY(addr); break;
+
+        case OP_DEX: DEX();     break;
+        case OP_DEY: DEY();     break;
+
+        case OP_EOR: EOR(addr); break;
+
+        case OP_INX: INX();     break;
+        case OP_INY: INY();     break;
+
+        case OP_JMP: JMP(addr); break;
+        case OP_JSR: JSR(addr); break;
+
+        case OP_LDA: LDA(addr); break;
+        case OP_LDX: LDX(addr); break;
+        case OP_LDY: LDY(addr); break;
+
+        case OP_NOP:    // do nothing
             break;
-        case OP_BCC:
-            BCC(addr);
-            break;
-        case OP_BCS:
-            BCS(addr);
-            break;
-        case OP_BEQ:
-            BEQ(addr);
-            break;
-        case OP_BIT:
-            BIT(addr);
-            break;
-        case OP_BMI:
-            BMI(addr);
-            break;
-        case OP_BNE:
-            BNE(addr);
-            break;
-        case OP_BPL:
-            BPL(addr);
-            break;
-        case OP_BVC:
-            BVC(addr);
-            break;
-        case OP_BVS:
-            BVS(addr);
-            break;
-        case OP_CLC:
-            CLC();
-            break;
-        case OP_CLD:
-            CLD();
-            break;
-        case OP_CLV:
-            CLV();
-            break;
-        case OP_CMP:
-            CMP(addr);
-            break;
-        case OP_EOR:
-            EOR(addr);
-            break;
-        case OP_JMP:
-            JMP(addr);
-            break;
-        case OP_JSR:
-            JSR(addr);
-            break;
-        case OP_LDA:
-            LDA(addr);
-            break;
-        case OP_LDX:
-            LDX(addr);
-            break;
-        case OP_NOP:
-            // do nothing
-            break;
-        case OP_ORA:
-            ORA(addr);
-            break;
-        case OP_PHA:
-            PHA();
-            break;
-        case OP_PHP:
-            PHP();
-            break;
-        case OP_PLA:
-            PLA();
-            break;
-        case OP_PLP:
-            PLP();
-            break;
-        case OP_RTS:
-            RTS();
-            break;
-        case OP_SEC:
-            SEC();
-            break;
-        case OP_SED:
-            SED();
-            break;
-        case OP_SEI:
-            SEI();
-            break;
-        case OP_STA:
-            STA(addr);
-            break;
-        case OP_STX:
-            STX(addr);
-            break;
+
+        case OP_ORA: ORA(addr); break;
+
+        case OP_PHA: PHA();     break;
+        case OP_PHP: PHP();     break;
+        case OP_PLA: PLA();     break;
+        case OP_PLP: PLP();     break;
+
+        case OP_RTS: RTS();     break;
+
+        case OP_SBC: SBC(addr); break;
+        case OP_SEC: SEC();     break;
+        case OP_SED: SED();     break;
+        case OP_SEI: SEI();     break;
+        case OP_STA: STA(addr); break;
+        case OP_STX: STX(addr); break;
+
+        case OP_TAX: TAX();     break;
+        case OP_TAY: TAY();     break;
+        case OP_TSX: TSX();     break;
+        case OP_TXA: TXA();     break;
+        case OP_TXS: TXS();     break;
+        case OP_TYA: TYA();     break;
+
         default:
             LOG_DEBUG("Illegal instructions");
             break;
@@ -239,11 +206,13 @@ inline void Cpu::ClearFlag(int flag) {
 }
 
 void Cpu::Push8(uint8_t val) {
-    mmu_->Write8(reg_.SP--, val);
+    mmu_->Write8(0x100 + reg_.SP, val);
+    --reg_.SP;
 }
 
 uint8_t Cpu::Pop8(void) {
-    return mmu_->Read8(++reg_.SP);
+    ++reg_.SP;
+    return mmu_->Read8(0x100 + reg_.SP);
 }
 
 bool Cpu::IsPageCrossed(uint16_t new_addr, uint16_t old_addr) {
@@ -287,6 +256,35 @@ void Cpu::Branch(int8_t offset, bool cond) {
     }
 }
 
+void Cpu::Compare(uint8_t a, uint8_t b) {
+    uint8_t diff = a - b;
+    SetNZFlag(diff);
+    if (a >= b) {
+        SetFlag(F_CARRY);
+    } else {
+        ClearFlag(F_CARRY);
+    }
+}
+
+
+void Cpu::ADC(uint16_t addr) {
+    uint8_t val = mmu_->Read8(addr);
+    uint16_t sum = reg_.A + val + GetFlag(F_CARRY);
+    uint8_t bit7_carry = ((reg_.A & 0x7F) + (val & 0x7F) + GetFlag(F_CARRY)) & 0x80 ? 1 : 0;
+
+    reg_.A = sum;
+    SetNZFlag(reg_.A);
+    if (sum > 255) {
+        SetFlag(F_CARRY);
+    } else {
+        ClearFlag(F_CARRY);
+    }
+    if (bit7_carry ^ GetFlag(F_CARRY)) {
+        SetFlag(F_OVERFLOW);
+    } else {
+        ClearFlag(F_OVERFLOW);
+    }
+}
 
 void Cpu::AND(uint16_t addr) {
     reg_.A &= mmu_->Read16(addr);
@@ -352,13 +350,26 @@ void Cpu::CLV(void) {
 
 void Cpu::CMP(uint16_t addr) {
     uint8_t val = mmu_->Read8(addr);
-    uint8_t diff = reg_.A - val;
-    SetNZFlag(diff);
-    if (reg_.A >= val) {
-        SetFlag(F_CARRY);
-    } else {
-        ClearFlag(F_CARRY);
-    }
+    Compare(reg_.A, val);
+}
+
+void Cpu::CPX(uint16_t addr) {
+    uint8_t val = mmu_->Read8(addr);
+    Compare(reg_.X, val);
+}
+
+void Cpu::CPY(uint16_t addr) {
+    uint8_t val = mmu_->Read8(addr);
+    Compare(reg_.Y, val);
+}
+
+
+void Cpu::DEX(void) {
+    SetNZFlag(--reg_.X);
+}
+
+void Cpu::DEY(void) {
+    SetNZFlag(--reg_.Y);
 }
 
 
@@ -368,13 +379,23 @@ void Cpu::EOR(uint16_t addr) {
 }
 
 
+void Cpu::INX(void) {
+    SetNZFlag(++reg_.X);
+}
+
+void Cpu::INY(void) {
+    SetNZFlag(++reg_.Y);
+}
+
+
 void Cpu::JMP(uint16_t addr) {
     reg_.PC = addr;
 }
 
 void Cpu::JSR(uint16_t addr) {
-    Push8(reg_.PC);
-    Push8(reg_.PC >> 8);
+    uint16_t ret_addr = reg_.PC - 1;
+    Push8(ret_addr >> 8);
+    Push8(ret_addr);
     reg_.PC = addr;
 }
 
@@ -387,6 +408,11 @@ void Cpu::LDA(uint16_t addr) {
 void Cpu::LDX(uint16_t addr) {
     reg_.X = mmu_->Read8(addr);
     SetNZFlag(reg_.X);
+}
+
+void Cpu::LDY(uint16_t addr) {
+    reg_.Y = mmu_->Read8(addr);
+    SetNZFlag(reg_.Y);
 }
 
 
@@ -416,9 +442,30 @@ void Cpu::PLP(void) {
 
 
 void Cpu::RTS(void) {
-    reg_.PC = (Pop8() << 8) | Pop8();
+    uint16_t pch = Pop8();
+    uint16_t pcl = Pop8() << 8;
+    reg_.PC = (pch | pcl) + 1;
 }
 
+
+void Cpu::SBC(uint16_t addr) {
+    uint8_t val = ~mmu_->Read8(addr);
+    uint16_t sum = reg_.A + val + GetFlag(F_CARRY);
+    uint8_t bit7_carry = ((reg_.A & 0x7F) + (val & 0x7F) + GetFlag(F_CARRY)) & 0x80 ? 1 : 0;
+
+    reg_.A = sum;
+    SetNZFlag(reg_.A);
+    if (sum > 255) {
+        SetFlag(F_CARRY);
+    } else {
+        ClearFlag(F_CARRY);
+    }
+    if (bit7_carry ^ GetFlag(F_CARRY)) {
+        SetFlag(F_OVERFLOW);
+    } else {
+        ClearFlag(F_OVERFLOW);
+    }
+}
 
 void Cpu::SEC(void) {
     SetFlag(F_CARRY);
@@ -438,6 +485,36 @@ void Cpu::STA(uint16_t addr) {
 
 void Cpu::STX(uint16_t addr) {
     mmu_->Write8(addr, reg_.X);
+}
+
+
+void Cpu::TAX(void) {
+    reg_.X = reg_.A;
+    SetNZFlag(reg_.X);
+}
+
+void Cpu::TAY(void) {
+    reg_.Y = reg_.A;
+    SetNZFlag(reg_.Y);
+}
+
+void Cpu::TSX(void) {
+    reg_.X = reg_.SP;
+    SetNZFlag(reg_.X);
+}
+
+void Cpu::TXA(void) {
+    reg_.A = reg_.X;
+    SetNZFlag(reg_.A);
+}
+
+void Cpu::TXS(void) {
+    reg_.SP = reg_.X;
+}
+
+void Cpu::TYA(void) {
+    reg_.A = reg_.Y;
+    SetNZFlag(reg_.A);
 }
 
 const Cpu::opcode_t Cpu::opcode_table_[256] = {
@@ -619,7 +696,7 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0xA5 */ { OP_LDA,     "LDA",            MODE_ZEROPAGE,           2, 3 },
     /* 0xA6 */ { OP_LDX,     "LDX",            MODE_ZEROPAGE,           2, 3 },
     /* 0xA7 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0xA8 */ { OP_TAX,     "TAY",            MODE_IMPLIED,            1, 2 },
+    /* 0xA8 */ { OP_TAY,     "TAY",            MODE_IMPLIED,            1, 2 },
     /* 0xA9 */ { OP_LDA,     "LDA",            MODE_IMMEDIATE,          2, 2 },
     /* 0xAA */ { OP_TAX,     "TAX",            MODE_IMPLIED,            1, 2 },
     /* 0xAB */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },

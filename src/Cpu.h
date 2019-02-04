@@ -99,7 +99,9 @@ private:
     void SetZFlag(uint8_t val);
     uint64_t GetBranchCycles(uint8_t offset);
     void Branch(int8_t offset, bool cond);
+    void Compare(uint8_t a, uint8_t b);
 
+    void ADC(uint16_t addr);
     void AND(uint16_t addr);
 
     void BCC(int8_t offset);
@@ -116,14 +118,23 @@ private:
     void CLD(void);
     void CLV(void);
     void CMP(uint16_t addr);
+    void CPX(uint16_t addr);
+    void CPY(uint16_t addr);
+
+    void DEX(void);
+    void DEY(void);
 
     void EOR(uint16_t addr);
+
+    void INX(void);
+    void INY(void);
 
     void JMP(uint16_t addr);
     void JSR(uint16_t addr);
 
     void LDA(uint16_t addr);
     void LDX(uint16_t addr);
+    void LDY(uint16_t addr);
 
     void ORA(uint16_t addr);
 
@@ -134,11 +145,19 @@ private:
 
     void RTS(void);
 
+    void SBC(uint16_t addr);
     void SEC(void);
     void SED(void);
     void SEI(void);
     void STA(uint16_t addr);
     void STX(uint16_t addr);
+
+    void TAX(void);
+    void TAY(void);
+    void TSX(void);
+    void TXA(void);
+    void TXS(void);
+    void TYA(void);
 };
 
 #endif
