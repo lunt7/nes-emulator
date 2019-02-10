@@ -36,12 +36,12 @@ public:
         OP_DEC, OP_DEX, OP_DEY,
         OP_EOR, OP_INC, OP_INX, OP_INY,
         OP_JMP, OP_JSR,
-        OP_LDA, OP_LDX, OP_LDY, OP_LSR,
+        OP_LAX, OP_LDA, OP_LDX, OP_LDY, OP_LSR,
         OP_NOP,
         OP_ORA,
         OP_PHA, OP_PHP, OP_PLA, OP_PLP,
         OP_ROL, OP_ROR, OP_RTI, OP_RTS,
-        OP_SBC, OP_SEC, OP_SED, OP_SEI, OP_STA, OP_STX, OP_STY,
+        OP_SAX, OP_SBC, OP_SEC, OP_SED, OP_SEI, OP_STA, OP_STX, OP_STY,
         OP_TAX, OP_TAY, OP_TSX, OP_TXA, OP_TXS, OP_TYA
     };
 
@@ -100,7 +100,7 @@ private:
     void SetNZFlag(uint8_t val);
     void SetNFlag(uint8_t val);
     void SetZFlag(uint8_t val);
-    uint64_t GetBranchCycles(uint8_t offset);
+    uint64_t GetBranchCycles(int8_t offset);
     void Branch(int8_t offset, bool cond);
     void Compare(uint8_t a, uint8_t b);
 
@@ -138,6 +138,7 @@ private:
     void JMP(uint16_t addr);
     void JSR(uint16_t addr);
 
+    void LAX(uint16_t addr);
     void LDA(uint16_t addr);
     void LDX(uint16_t addr);
     void LDY(uint16_t addr);
@@ -155,6 +156,7 @@ private:
     void RTI(void);
     void RTS(void);
 
+    void SAX(uint16_t addr);
     void SBC(uint16_t addr);
     void SEC(void);
     void SED(void);

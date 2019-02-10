@@ -32,7 +32,7 @@ void Nes::Run(const char* rom, emu_mode mode) {
     if (mode == EMU_MODE_AUTOMATED) {
         cpu_->SetPC(0xC000);
     }
-    for(int i = 0; i < 5000; i++) {
+    for(int i = 0; i < 10000; i++) {
         cpu_->Step();
     }
 }

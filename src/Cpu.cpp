@@ -56,7 +56,7 @@ void Cpu::Step(void) {
             break;
         case MODE_INDIRECT:
             operand = mmu_->Read16(reg_.PC + 1);
-            addr = mmu_->Read16(operand);
+            addr = mmu_->Read16_S(operand);
             break;
         case MODE_X_INDEXED_INDIRECT:
             operand = mmu_->Read8(reg_.PC + 1);
@@ -64,7 +64,7 @@ void Cpu::Step(void) {
             break;
         case MODE_INDIRECT_Y_INDEXED:
             operand = mmu_->Read8(reg_.PC + 1);
-            addr = mmu_->Read16(operand) + reg_.Y;
+            addr = mmu_->Read16_S(operand) + reg_.Y;
             pageCrossed = IsPageCrossed(addr, (mmu_->Read16(operand) & 0xFF00) | ((mmu_->Read16(operand) + reg_.Y) & 0xFF));
             break;
         case MODE_RELATIVE:
@@ -119,10 +119,11 @@ void Cpu::Step(void) {
 
     reg_.PC += opcode_table_[opcode].size;
     cycles_ += opcode_table_[opcode].cycles;
-    if (pageCrossed)
+    enum opcode op = opcode_table_[opcode].op;
+    if (pageCrossed && op != OP_STA && op != OP_STX && op != OP_STY)
         ++cycles_;
 
-    switch (opcode_table_[opcode].op) {
+    switch (op) {
         case OP_ADC: ADC(addr); break;
         case OP_AND: AND(addr); break;
         case OP_ASL: ASL(addr); break;
@@ -157,6 +158,7 @@ void Cpu::Step(void) {
         case OP_JMP: JMP(addr); break;
         case OP_JSR: JSR(addr); break;
 
+        case OP_LAX: LAX(addr); break;
         case OP_LDA: LDA(addr); break;
         case OP_LDX: LDX(addr); break;
         case OP_LDY: LDY(addr); break;
@@ -177,6 +179,7 @@ void Cpu::Step(void) {
         case OP_RTI: RTI();     break;
         case OP_RTS: RTS();     break;
 
+        case OP_SAX: SAX(addr); break;
         case OP_SBC: SBC(addr); break;
         case OP_SEC: SEC();     break;
         case OP_SED: SED();     break;
@@ -260,7 +263,7 @@ void Cpu::SetZFlag(uint8_t val) {
     }
 }
 
-uint64_t Cpu::GetBranchCycles(uint8_t offset) {
+uint64_t Cpu::GetBranchCycles(int8_t offset) {
     uint64_t branch_cycles = 0;
     ++branch_cycles;
     if (IsPageCrossed(reg_.PC, reg_.PC - offset)) {
@@ -452,6 +455,14 @@ void Cpu::JSR(uint16_t addr) {
 }
 
 
+void Cpu::LAX(uint16_t addr) {
+    //uint16_t a = mmu_->Read16(addr);
+    uint8_t val = mmu_->Read8(addr);
+    reg_.A = val;
+    reg_.X = val;
+    SetNZFlag(val);
+}
+
 void Cpu::LDA(uint16_t addr) {
     reg_.A = mmu_->Read8(addr);
     SetNZFlag(reg_.A);
@@ -572,6 +583,10 @@ void Cpu::RTS(void) {
 }
 
 
+void Cpu::SAX(uint16_t addr) {
+    mmu_->Write8(addr, reg_.A & reg_.X);
+}
+
 void Cpu::SBC(uint16_t addr) {
     uint8_t val = ~mmu_->Read8(addr);
     uint16_t sum = reg_.A + val + GetFlag(F_CARRY);
@@ -651,7 +666,7 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0x01 */ { OP_ORA,     "ORA",            MODE_X_INDEXED_INDIRECT, 2, 6 },
     /* 0x02 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0x03 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0x04 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x04 */ { OP_NOP,     "NOP",            MODE_ZEROPAGE,           2, 3 },
     /* 0x05 */ { OP_ORA,     "ORA",            MODE_ZEROPAGE,           2, 3 },
     /* 0x06 */ { OP_ASL,     "ASL",            MODE_ZEROPAGE,           2, 5 },
     /* 0x07 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
@@ -659,7 +674,7 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0x09 */ { OP_ORA,     "ORA",            MODE_IMMEDIATE,          2, 2 },
     /* 0x0A */ { OP_ASL,     "ASL",            MODE_ACCUMULATOR,        1, 2 },
     /* 0x0B */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0x0C */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x0C */ { OP_NOP,     "NOP",            MODE_ABSOLUTE,           3, 4 },
     /* 0x0D */ { OP_ORA,     "ORA",            MODE_ABSOLUTE,           3, 4 },
     /* 0x0E */ { OP_ASL,     "ASL",            MODE_ABSOLUTE,           3, 6 },
     /* 0x0F */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
@@ -668,15 +683,15 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0x11 */ { OP_ORA,     "ORA",            MODE_INDIRECT_Y_INDEXED, 2, 5 },
     /* 0x12 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0x13 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0x14 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x14 */ { OP_NOP,     "NOP",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0x15 */ { OP_ORA,     "ORA",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0x16 */ { OP_ASL,     "ASL",            MODE_ZEROPAGE_X_INDEXED, 2, 6 },
     /* 0x17 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0x18 */ { OP_CLC,     "CLC",            MODE_IMPLIED,            1, 2 },
     /* 0x19 */ { OP_ORA,     "ORA",            MODE_ABSOLUTE_Y_INDEXED, 3, 4 },
-    /* 0x1A */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x1A */ { OP_NOP,     "NOP",            MODE_IMPLIED,            1, 2 },
     /* 0x1B */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0x1C */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x1C */ { OP_NOP,     "NOP",            MODE_ABSOLUTE_X_INDEXED, 3, 4 },
     /* 0x1D */ { OP_ORA,     "ORA",            MODE_ABSOLUTE_X_INDEXED, 3, 4 },
     /* 0x1E */ { OP_ASL,     "ASL",            MODE_ABSOLUTE_X_INDEXED, 3, 7 },
     /* 0x1F */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
@@ -702,15 +717,15 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0x31 */ { OP_AND,     "AND",            MODE_INDIRECT_Y_INDEXED, 2, 5 },
     /* 0x32 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0x33 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0x34 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x34 */ { OP_NOP,     "NOP",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0x35 */ { OP_AND,     "AND",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0x36 */ { OP_ROL,     "ROL",            MODE_ZEROPAGE_X_INDEXED, 2, 6 },
     /* 0x37 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0x38 */ { OP_SEC,     "SEC",            MODE_IMPLIED,            1, 2 },
     /* 0x39 */ { OP_AND,     "AND",            MODE_ABSOLUTE_Y_INDEXED, 3, 4 },
-    /* 0x3A */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x3A */ { OP_NOP,     "NOP",            MODE_IMPLIED,            1, 2 },
     /* 0x3B */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0x3C */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x3C */ { OP_NOP,     "NOP",            MODE_ABSOLUTE_X_INDEXED, 3, 4 },
     /* 0x3D */ { OP_AND,     "AND",            MODE_ABSOLUTE_X_INDEXED, 3, 4 },
     /* 0x3E */ { OP_ROL,     "ROL",            MODE_ABSOLUTE_X_INDEXED, 3, 7 },
     /* 0x3F */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
@@ -719,7 +734,7 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0x41 */ { OP_EOR,     "EOR",            MODE_X_INDEXED_INDIRECT, 2, 6 },
     /* 0x42 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0x43 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0x44 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x44 */ { OP_NOP,     "NOP",            MODE_ZEROPAGE,           2, 3 },
     /* 0x45 */ { OP_EOR,     "EOR",            MODE_ZEROPAGE,           2, 3 },
     /* 0x46 */ { OP_LSR,     "LSR",            MODE_ZEROPAGE,           2, 5 },
     /* 0x47 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
@@ -736,15 +751,15 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0x51 */ { OP_EOR,     "EOR",            MODE_INDIRECT_Y_INDEXED, 2, 5 },
     /* 0x52 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0x53 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0x54 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x54 */ { OP_NOP,     "NOP",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0x55 */ { OP_EOR,     "EOR",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0x56 */ { OP_LSR,     "LSR",            MODE_ZEROPAGE_X_INDEXED, 2, 6 },
     /* 0x57 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0x58 */ { OP_CLI,     "CLI",            MODE_IMPLIED,            1, 2 },
     /* 0x59 */ { OP_EOR,     "EOR",            MODE_ABSOLUTE_Y_INDEXED, 3, 4 },
-    /* 0x5A */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x5A */ { OP_NOP,     "NOP",            MODE_IMPLIED,            1, 2 },
     /* 0x5B */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0x5C */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x5C */ { OP_NOP,     "NOP",            MODE_ABSOLUTE_X_INDEXED, 3, 4 },
     /* 0x5D */ { OP_EOR,     "EOR",            MODE_ABSOLUTE_X_INDEXED, 3, 4 },
     /* 0x5E */ { OP_LSR,     "LSR",            MODE_ABSOLUTE_X_INDEXED, 3, 7 },
     /* 0x5F */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
@@ -753,7 +768,7 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0x61 */ { OP_ADC,     "ADC",            MODE_X_INDEXED_INDIRECT, 2, 6 },
     /* 0x62 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0x63 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0x64 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x64 */ { OP_NOP,     "NOP",            MODE_ZEROPAGE,           2, 3 },
     /* 0x65 */ { OP_ADC,     "ADC",            MODE_ZEROPAGE,           2, 3 },
     /* 0x66 */ { OP_ROR,     "ROR",            MODE_ZEROPAGE,           2, 5 },
     /* 0x67 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
@@ -770,27 +785,27 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0x71 */ { OP_ADC,     "ADC",            MODE_INDIRECT_Y_INDEXED, 2, 5 },
     /* 0x72 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0x73 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0x74 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x74 */ { OP_NOP,     "NOP",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0x75 */ { OP_ADC,     "ADC",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0x76 */ { OP_ROR,     "ROR",            MODE_ZEROPAGE_X_INDEXED, 2, 6 },
     /* 0x77 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0x78 */ { OP_SEI,     "SEI",            MODE_IMPLIED,            1, 2 },
     /* 0x79 */ { OP_ADC,     "ADC",            MODE_ABSOLUTE_Y_INDEXED, 3, 4 },
-    /* 0x7A */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x7A */ { OP_NOP,     "NOP",            MODE_IMPLIED,            1, 2 },
     /* 0x7B */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0x7C */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x7C */ { OP_NOP,     "NOP",            MODE_ABSOLUTE_X_INDEXED, 3, 4 },
     /* 0x7D */ { OP_ADC,     "ADC",            MODE_ABSOLUTE_X_INDEXED, 3, 4 },
     /* 0x7E */ { OP_ROR,     "ROR",            MODE_ABSOLUTE_X_INDEXED, 3, 7 },
     /* 0x7F */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
 
-    /* 0x80 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x80 */ { OP_NOP,     "NOP",            MODE_IMMEDIATE,          2, 2 },
     /* 0x81 */ { OP_STA,     "STA",            MODE_X_INDEXED_INDIRECT, 2, 6 },
     /* 0x82 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0x83 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x83 */ { OP_SAX,     "SAX",            MODE_X_INDEXED_INDIRECT, 2, 6 },
     /* 0x84 */ { OP_STY,     "STY",            MODE_ZEROPAGE,           2, 3 },
     /* 0x85 */ { OP_STA,     "STA",            MODE_ZEROPAGE,           2, 3 },
     /* 0x86 */ { OP_STX,     "STX",            MODE_ZEROPAGE,           2, 3 },
-    /* 0x87 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x87 */ { OP_SAX,     "SAX",            MODE_ZEROPAGE,           2, 3 },
     /* 0x88 */ { OP_DEY,     "DEY",            MODE_IMPLIED,            1, 2 },
     /* 0x89 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0x8A */ { OP_TXA,     "TXA",            MODE_IMPLIED,            1, 2 },
@@ -798,7 +813,7 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0x8C */ { OP_STY,     "STY",            MODE_ABSOLUTE,           3, 4 },
     /* 0x8D */ { OP_STA,     "STA",            MODE_ABSOLUTE,           3, 4 },
     /* 0x8E */ { OP_STX,     "STX",            MODE_ABSOLUTE,           3, 4 },
-    /* 0x8F */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x8F */ { OP_SAX,     "SAX",            MODE_ABSOLUTE,           3, 4 },
 
     /* 0x90 */ { OP_BCC,     "BCC",            MODE_RELATIVE,           2, 2 },
     /* 0x91 */ { OP_STA,     "STA",            MODE_INDIRECT_Y_INDEXED, 2, 6 },
@@ -807,7 +822,7 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0x94 */ { OP_STY,     "STY",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0x95 */ { OP_STA,     "STA",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0x96 */ { OP_STX,     "STX",            MODE_ZEROPAGE_Y_INDEXED, 2, 4 },
-    /* 0x97 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0x97 */ { OP_SAX,     "SAX",            MODE_ZEROPAGE_Y_INDEXED, 2, 4 },
     /* 0x98 */ { OP_TYA,     "TYA",            MODE_IMPLIED,            1, 2 },
     /* 0x99 */ { OP_STA,     "STA",            MODE_ABSOLUTE_Y_INDEXED, 3, 5 },
     /* 0x9A */ { OP_TXS,     "TXS",            MODE_IMPLIED,            1, 2 },
@@ -820,11 +835,11 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0xA0 */ { OP_LDY,     "LDY",            MODE_IMMEDIATE,          2, 2 },
     /* 0xA1 */ { OP_LDA,     "LDA",            MODE_X_INDEXED_INDIRECT, 2, 6 },
     /* 0xA2 */ { OP_LDX,     "LDX",            MODE_IMMEDIATE,          2, 2 },
-    /* 0xA3 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0xA3 */ { OP_LAX,     "LAX",            MODE_X_INDEXED_INDIRECT, 2, 6 },
     /* 0xA4 */ { OP_LDY,     "LDY",            MODE_ZEROPAGE,           2, 3 },
     /* 0xA5 */ { OP_LDA,     "LDA",            MODE_ZEROPAGE,           2, 3 },
     /* 0xA6 */ { OP_LDX,     "LDX",            MODE_ZEROPAGE,           2, 3 },
-    /* 0xA7 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0xA7 */ { OP_LAX,     "LAX",            MODE_ZEROPAGE,           2, 3 },
     /* 0xA8 */ { OP_TAY,     "TAY",            MODE_IMPLIED,            1, 2 },
     /* 0xA9 */ { OP_LDA,     "LDA",            MODE_IMMEDIATE,          2, 2 },
     /* 0xAA */ { OP_TAX,     "TAX",            MODE_IMPLIED,            1, 2 },
@@ -832,16 +847,16 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0xAC */ { OP_LDY,     "LDY",            MODE_ABSOLUTE,           3, 4 },
     /* 0xAD */ { OP_LDA,     "LDA",            MODE_ABSOLUTE,           3, 4 },
     /* 0xAE */ { OP_LDX,     "LDX",            MODE_ABSOLUTE,           3, 4 },
-    /* 0xAF */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0xAF */ { OP_LAX,     "LAX",            MODE_ABSOLUTE,           3, 4 },
 
     /* 0xB0 */ { OP_BCS,     "BCS",            MODE_RELATIVE,           2, 2 },
     /* 0xB1 */ { OP_LDA,     "LDA",            MODE_INDIRECT_Y_INDEXED, 2, 5 },
     /* 0xB2 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0xB3 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0xB4 */ { OP_LDY,     "LDY",            MODE_ZEROPAGE_Y_INDEXED, 2, 4 },
+    /* 0xB3 */ { OP_LAX,     "LAX",            MODE_INDIRECT_Y_INDEXED, 2, 5 },
+    /* 0xB4 */ { OP_LDY,     "LDY",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0xB5 */ { OP_LDA,     "LDA",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0xB6 */ { OP_LDX,     "LDX",            MODE_ZEROPAGE_Y_INDEXED, 2, 4 },
-    /* 0xB7 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0xB7 */ { OP_LAX,     "LAX",            MODE_ZEROPAGE_Y_INDEXED, 2, 4 },
     /* 0xB8 */ { OP_CLV,     "CLV",            MODE_IMPLIED,            1, 2 },
     /* 0xB9 */ { OP_LDA,     "LDA",            MODE_ABSOLUTE_Y_INDEXED, 3, 4 },
     /* 0xBA */ { OP_TSX,     "TSX",            MODE_IMPLIED,            1, 2 },
@@ -849,7 +864,7 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0xBC */ { OP_LDY,     "LDY",            MODE_ABSOLUTE_X_INDEXED, 3, 4 },
     /* 0xBD */ { OP_LDA,     "LDA",            MODE_ABSOLUTE_X_INDEXED, 3, 4 },
     /* 0xBE */ { OP_LDX,     "LDX",            MODE_ABSOLUTE_Y_INDEXED, 3, 4 },
-    /* 0xBF */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0xBF */ { OP_LAX,     "LAX",            MODE_ABSOLUTE_Y_INDEXED, 3, 4 },
 
     /* 0xC0 */ { OP_CPY,     "CPY",            MODE_IMMEDIATE,          2, 2 },
     /* 0xC1 */ { OP_CMP,     "CMP",            MODE_X_INDEXED_INDIRECT, 2, 6 },
@@ -872,15 +887,15 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0xD1 */ { OP_CMP,     "CMP",            MODE_INDIRECT_Y_INDEXED, 2, 5 },
     /* 0xD2 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0xD3 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0xD4 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0xD4 */ { OP_NOP,     "NOP",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0xD5 */ { OP_CMP,     "CMP",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0xD6 */ { OP_DEC,     "DEC",            MODE_ZEROPAGE_X_INDEXED, 2, 6 },
     /* 0xD7 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0xD8 */ { OP_CLD,     "CLD",            MODE_IMPLIED,            1, 2 },
     /* 0xD9 */ { OP_CMP,     "CMP",            MODE_ABSOLUTE_Y_INDEXED, 3, 4 },
-    /* 0xDA */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0xDA */ { OP_NOP,     "NOP",            MODE_IMPLIED,            1, 2 },
     /* 0xDB */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0xDC */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0xDC */ { OP_NOP,     "NOP",            MODE_ABSOLUTE_X_INDEXED, 3, 4 },
     /* 0xDD */ { OP_CMP,     "CMP",            MODE_ABSOLUTE_X_INDEXED, 3, 4 },
     /* 0xDE */ { OP_DEC,     "DEC",            MODE_ABSOLUTE_X_INDEXED, 3, 7 },
     /* 0xDF */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
@@ -906,15 +921,15 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0xF1 */ { OP_SBC,     "SBC",            MODE_INDIRECT_Y_INDEXED, 2, 5 },
     /* 0xF2 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0xF3 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0xF4 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0xF4 */ { OP_NOP,     "NOP",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0xF5 */ { OP_SBC,     "SBC",            MODE_ZEROPAGE_X_INDEXED, 2, 4 },
     /* 0xF6 */ { OP_INC,     "INC",            MODE_ZEROPAGE_X_INDEXED, 2, 6 },
     /* 0xF7 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
     /* 0xF8 */ { OP_SED,     "SED",            MODE_IMPLIED,            1, 2 },
     /* 0xF9 */ { OP_SBC,     "SBC",            MODE_ABSOLUTE_Y_INDEXED, 3, 4 },
-    /* 0xFA */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0xFA */ { OP_NOP,     "NOP",            MODE_IMPLIED,            1, 2 },
     /* 0xFB */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
-    /* 0xFC */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 },
+    /* 0xFC */ { OP_NOP,     "NOP",            MODE_ABSOLUTE_X_INDEXED, 3, 4 },
     /* 0xFD */ { OP_SBC,     "SBC",            MODE_ABSOLUTE_X_INDEXED, 3, 4 },
     /* 0xFE */ { OP_INC,     "INC",            MODE_ABSOLUTE_X_INDEXED, 3, 7 },
     /* 0xFF */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0 }
