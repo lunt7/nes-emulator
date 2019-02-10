@@ -33,15 +33,15 @@ public:
         OP_ADC, OP_AND, OP_ASL,
         OP_BCC, OP_BCS, OP_BEQ, OP_BIT, OP_BMI, OP_BNE, OP_BPL, OP_BRK, OP_BVC, OP_BVS,
         OP_CLC, OP_CLD, OP_CLI, OP_CLV, OP_CMP, OP_CPX, OP_CPY,
-        OP_DEC, OP_DEX, OP_DEY,
-        OP_EOR, OP_INC, OP_INX, OP_INY,
+        OP_DCP, OP_DEC, OP_DEX, OP_DEY,
+        OP_EOR, OP_INC, OP_INX, OP_INY, OP_ISB,
         OP_JMP, OP_JSR,
         OP_LAX, OP_LDA, OP_LDX, OP_LDY, OP_LSR,
         OP_NOP,
         OP_ORA,
         OP_PHA, OP_PHP, OP_PLA, OP_PLP,
         OP_ROL, OP_ROR, OP_RTI, OP_RTS,
-        OP_SAX, OP_SBC, OP_SEC, OP_SED, OP_SEI, OP_STA, OP_STX, OP_STY,
+        OP_SAX, OP_SBC, OP_SEC, OP_SED, OP_SEI, OP_SLO, OP_STA, OP_STX, OP_STY,
         OP_TAX, OP_TAY, OP_TSX, OP_TXA, OP_TXS, OP_TYA
     };
 
@@ -68,6 +68,7 @@ public:
         addr_mode   mode;
         int         size;
         int         cycles;
+        int         pagecrossed_cycles;
     } opcode_t;
 
     Cpu(Nes* nes, Mmu* mmu);
@@ -125,6 +126,7 @@ private:
     void CPX(uint16_t addr);
     void CPY(uint16_t addr);
 
+    void DCP(uint16_t addr);
     void DEC(uint16_t addr);
     void DEX(void);
     void DEY(void);
@@ -134,6 +136,7 @@ private:
     void INC(uint16_t addr);
     void INX(void);
     void INY(void);
+    void ISB(uint16_t addr);
 
     void JMP(uint16_t addr);
     void JSR(uint16_t addr);
@@ -161,6 +164,7 @@ private:
     void SEC(void);
     void SED(void);
     void SEI(void);
+    void SLO(uint16_t addr);
     void STA(uint16_t addr);
     void STX(uint16_t addr);
     void STY(uint16_t addr);
