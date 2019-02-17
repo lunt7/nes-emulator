@@ -43,7 +43,9 @@ void Mmu::Write8(uint16_t addr, uint8_t data) {
     if (addr < 0x2000) {
         ram_[addr & 0x1FFF] = data;
     } else {
-        mem_units_[addr]->Write8(addr, data);
+        if (mem_units_[addr] != nullptr) {
+            mem_units_[addr]->Write8(addr, data);
+        }
     }
 }
 

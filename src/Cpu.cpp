@@ -10,8 +10,6 @@ Cpu::Cpu(Nes* nes, Mmu* mmu) :
     nes_(nes), mmu_(mmu)
 {
     memset(&reg_, 0, sizeof(reg_));
-    // memset(&op, 0, sizeof(op));typedef struct {
-
 }
 
 void Cpu::PowerOn(void) {
@@ -176,8 +174,10 @@ void Cpu::Step(void) {
         case OP_PLA: PLA();     break;
         case OP_PLP: PLP();     break;
 
+        case OP_RLA: RLA(addr); break;
         case OP_ROL: ROL(addr); break;
         case OP_ROR: ROR(addr); break;
+        case OP_RRA: RRA(addr); break;
         case OP_RTI: RTI();     break;
         case OP_RTS: RTS();     break;
 
@@ -187,6 +187,7 @@ void Cpu::Step(void) {
         case OP_SED: SED();     break;
         case OP_SEI: SEI();     break;
         case OP_SLO: SLO(addr); break;
+        case OP_SRE: SRE(addr); break;
         case OP_STA: STA(addr); break;
         case OP_STX: STX(addr); break;
         case OP_STY: STY(addr); break;
@@ -544,6 +545,11 @@ void Cpu::PLP(void) {
 }
 
 
+void Cpu::RLA(uint16_t addr) {
+    ROL(addr);
+    AND(addr);
+}
+
 void Cpu::ROL(uint16_t addr) {
     uint8_t c = GetFlag(F_CARRY);
     if (mode_ == MODE_ACCUMULATOR) {
@@ -588,6 +594,11 @@ void Cpu::ROR(uint16_t addr) {
         mmu_->Write8(addr, val);
         SetNZFlag(val);
     }
+}
+
+void Cpu::RRA(uint16_t addr) {
+    ROR(addr);
+    ADC(addr);
 }
 
 void Cpu::RTI(void) {
@@ -639,6 +650,11 @@ void Cpu::SEI(void) {
 void Cpu::SLO(uint16_t addr) {
     ASL(addr);
     ORA(addr);
+}
+
+void Cpu::SRE(uint16_t addr) {
+    LSR(addr);
+    EOR(addr);
 }
 
 void Cpu::STA(uint16_t addr) {
@@ -722,11 +738,11 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0x20 */ { OP_JSR,     "JSR",            MODE_ABSOLUTE,           3, 6, 0 },
     /* 0x21 */ { OP_AND,     "AND",            MODE_X_INDEXED_INDIRECT, 2, 6, 0 },
     /* 0x22 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
-    /* 0x23 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x23 */ { OP_RLA,     "RLA",            MODE_X_INDEXED_INDIRECT, 2, 8, 0 },
     /* 0x24 */ { OP_BIT,     "BIT",            MODE_ZEROPAGE,           2, 3, 0 },
     /* 0x25 */ { OP_AND,     "AND",            MODE_ZEROPAGE,           2, 3, 0 },
     /* 0x26 */ { OP_ROL,     "ROL",            MODE_ZEROPAGE,           2, 5, 0 },
-    /* 0x27 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x27 */ { OP_RLA,     "RLA",            MODE_ZEROPAGE,           2, 5, 0 },
     /* 0x28 */ { OP_PLP,     "PLP",            MODE_IMPLIED,            1, 4, 0 },
     /* 0x29 */ { OP_AND,     "AND",            MODE_IMMEDIATE,          2, 2, 0 },
     /* 0x2A */ { OP_ROL,     "ROL",            MODE_ACCUMULATOR,        1, 2, 0 },
@@ -734,33 +750,33 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0x2C */ { OP_BIT,     "BIT",            MODE_ABSOLUTE,           3, 4, 0 },
     /* 0x2D */ { OP_AND,     "AND",            MODE_ABSOLUTE,           3, 4, 0 },
     /* 0x2E */ { OP_ROL,     "ROL",            MODE_ABSOLUTE,           3, 6, 0 },
-    /* 0x2F */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x2F */ { OP_RLA,     "RLA",            MODE_ABSOLUTE,           3, 6, 0 },
 
     /* 0x30 */ { OP_BMI,     "BMI",            MODE_RELATIVE,           2, 2, 1 },
     /* 0x31 */ { OP_AND,     "AND",            MODE_INDIRECT_Y_INDEXED, 2, 5, 1 },
     /* 0x32 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
-    /* 0x33 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x33 */ { OP_RLA,     "RLA",            MODE_INDIRECT_Y_INDEXED, 2, 8, 0 },
     /* 0x34 */ { OP_NOP,     "NOP",            MODE_ZEROPAGE_X_INDEXED, 2, 4, 0 },
     /* 0x35 */ { OP_AND,     "AND",            MODE_ZEROPAGE_X_INDEXED, 2, 4, 0 },
     /* 0x36 */ { OP_ROL,     "ROL",            MODE_ZEROPAGE_X_INDEXED, 2, 6, 0 },
-    /* 0x37 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x37 */ { OP_RLA,     "RLA",            MODE_ZEROPAGE_X_INDEXED, 2, 6, 0 },
     /* 0x38 */ { OP_SEC,     "SEC",            MODE_IMPLIED,            1, 2, 0 },
     /* 0x39 */ { OP_AND,     "AND",            MODE_ABSOLUTE_Y_INDEXED, 3, 4, 1 },
     /* 0x3A */ { OP_NOP,     "NOP",            MODE_IMPLIED,            1, 2, 0 },
-    /* 0x3B */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x3B */ { OP_RLA,     "RLA",            MODE_ABSOLUTE_Y_INDEXED, 3, 7, 0 },
     /* 0x3C */ { OP_NOP,     "NOP",            MODE_ABSOLUTE_X_INDEXED, 3, 4, 1 },
     /* 0x3D */ { OP_AND,     "AND",            MODE_ABSOLUTE_X_INDEXED, 3, 4, 1 },
     /* 0x3E */ { OP_ROL,     "ROL",            MODE_ABSOLUTE_X_INDEXED, 3, 7, 0 },
-    /* 0x3F */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x3F */ { OP_RLA,     "RLA",            MODE_ABSOLUTE_X_INDEXED, 3, 7, 0 },
 
     /* 0x40 */ { OP_RTI,     "RTI",            MODE_IMPLIED,            1, 6, 0 },
     /* 0x41 */ { OP_EOR,     "EOR",            MODE_X_INDEXED_INDIRECT, 2, 6, 0 },
     /* 0x42 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
-    /* 0x43 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x43 */ { OP_SRE,     "SRE",            MODE_X_INDEXED_INDIRECT, 2, 8, 0 },
     /* 0x44 */ { OP_NOP,     "NOP",            MODE_ZEROPAGE,           2, 3, 0 },
     /* 0x45 */ { OP_EOR,     "EOR",            MODE_ZEROPAGE,           2, 3, 0 },
     /* 0x46 */ { OP_LSR,     "LSR",            MODE_ZEROPAGE,           2, 5, 0 },
-    /* 0x47 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x47 */ { OP_SRE,     "SRE",            MODE_ZEROPAGE,           2, 5, 0 },
     /* 0x48 */ { OP_PHA,     "PHA",            MODE_IMPLIED,            1, 3, 0 },
     /* 0x49 */ { OP_EOR,     "EOR",            MODE_IMMEDIATE,          2, 2, 0 },
     /* 0x4A */ { OP_LSR,     "LSR",            MODE_ACCUMULATOR,        1, 2, 0 },
@@ -768,33 +784,33 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0x4C */ { OP_JMP,     "JMP",            MODE_ABSOLUTE,           3, 3, 0 },
     /* 0x4D */ { OP_EOR,     "EOR",            MODE_ABSOLUTE,           3, 4, 0},
     /* 0x4E */ { OP_LSR,     "LSR",            MODE_ABSOLUTE,           3, 6, 0 },
-    /* 0x4F */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x4F */ { OP_SRE,     "SRE",            MODE_ABSOLUTE,           3, 6, 0 },
 
     /* 0x50 */ { OP_BVC,     "BVC",            MODE_RELATIVE,           2, 2, 1 },
     /* 0x51 */ { OP_EOR,     "EOR",            MODE_INDIRECT_Y_INDEXED, 2, 5, 1 },
     /* 0x52 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
-    /* 0x53 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x53 */ { OP_SRE,     "SRE",            MODE_INDIRECT_Y_INDEXED, 2, 8, 0 },
     /* 0x54 */ { OP_NOP,     "NOP",            MODE_ZEROPAGE_X_INDEXED, 2, 4, 0 },
     /* 0x55 */ { OP_EOR,     "EOR",            MODE_ZEROPAGE_X_INDEXED, 2, 4, 0 },
     /* 0x56 */ { OP_LSR,     "LSR",            MODE_ZEROPAGE_X_INDEXED, 2, 6, 0 },
-    /* 0x57 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x57 */ { OP_SRE,     "SRE",            MODE_ZEROPAGE_X_INDEXED, 2, 6, 0 },
     /* 0x58 */ { OP_CLI,     "CLI",            MODE_IMPLIED,            1, 2, 0 },
     /* 0x59 */ { OP_EOR,     "EOR",            MODE_ABSOLUTE_Y_INDEXED, 3, 4, 1 },
     /* 0x5A */ { OP_NOP,     "NOP",            MODE_IMPLIED,            1, 2, 0 },
-    /* 0x5B */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x5B */ { OP_SRE,     "SRE",            MODE_ABSOLUTE_Y_INDEXED, 3, 7, 0 },
     /* 0x5C */ { OP_NOP,     "NOP",            MODE_ABSOLUTE_X_INDEXED, 3, 4, 1 },
     /* 0x5D */ { OP_EOR,     "EOR",            MODE_ABSOLUTE_X_INDEXED, 3, 4, 1 },
     /* 0x5E */ { OP_LSR,     "LSR",            MODE_ABSOLUTE_X_INDEXED, 3, 7, 0 },
-    /* 0x5F */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x5F */ { OP_SRE,     "SRE",            MODE_ABSOLUTE_X_INDEXED, 3, 7, 0 },
 
     /* 0x60 */ { OP_RTS,     "RTS",            MODE_IMPLIED,            1, 6, 0 },
     /* 0x61 */ { OP_ADC,     "ADC",            MODE_X_INDEXED_INDIRECT, 2, 6, 0 },
     /* 0x62 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
-    /* 0x63 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x63 */ { OP_RRA,     "RRA",            MODE_X_INDEXED_INDIRECT, 2, 8, 0 },
     /* 0x64 */ { OP_NOP,     "NOP",            MODE_ZEROPAGE,           2, 3, 0 },
     /* 0x65 */ { OP_ADC,     "ADC",            MODE_ZEROPAGE,           2, 3, 0 },
     /* 0x66 */ { OP_ROR,     "ROR",            MODE_ZEROPAGE,           2, 5, 0 },
-    /* 0x67 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x67 */ { OP_RRA,     "RRA",            MODE_ZEROPAGE,           2, 5, 0 },
     /* 0x68 */ { OP_PLA,     "PLA",            MODE_IMPLIED,            1, 4, 0 },
     /* 0x69 */ { OP_ADC,     "ADC",            MODE_IMMEDIATE,          2, 2, 0 },
     /* 0x6A */ { OP_ROR,     "ROR",            MODE_ACCUMULATOR,        1, 2, 0 },
@@ -802,24 +818,24 @@ const Cpu::opcode_t Cpu::opcode_table_[256] = {
     /* 0x6C */ { OP_JMP,     "JMP",            MODE_INDIRECT,           3, 5, 0 },
     /* 0x6D */ { OP_ADC,     "ADC",            MODE_ABSOLUTE,           3, 4, 0 },
     /* 0x6E */ { OP_ROR,     "ROR",            MODE_ABSOLUTE,           3, 6, 0 },
-    /* 0x6F */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x6F */ { OP_RRA,     "RRA",            MODE_ABSOLUTE,           3, 6, 0 },
 
     /* 0x70 */ { OP_BVS,     "BVS",            MODE_RELATIVE,           2, 2, 1 },
     /* 0x71 */ { OP_ADC,     "ADC",            MODE_INDIRECT_Y_INDEXED, 2, 5, 1 },
     /* 0x72 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
-    /* 0x73 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x73 */ { OP_RRA,     "RRA",            MODE_INDIRECT_Y_INDEXED, 2, 8, 0 },
     /* 0x74 */ { OP_NOP,     "NOP",            MODE_ZEROPAGE_X_INDEXED, 2, 4, 0 },
     /* 0x75 */ { OP_ADC,     "ADC",            MODE_ZEROPAGE_X_INDEXED, 2, 4, 0 },
     /* 0x76 */ { OP_ROR,     "ROR",            MODE_ZEROPAGE_X_INDEXED, 2, 6, 0 },
-    /* 0x77 */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x77 */ { OP_RRA,     "RRA",            MODE_ZEROPAGE_X_INDEXED, 2, 6, 0 },
     /* 0x78 */ { OP_SEI,     "SEI",            MODE_IMPLIED,            1, 2, 0 },
     /* 0x79 */ { OP_ADC,     "ADC",            MODE_ABSOLUTE_Y_INDEXED, 3, 4, 1 },
     /* 0x7A */ { OP_NOP,     "NOP",            MODE_IMPLIED,            1, 2, 0 },
-    /* 0x7B */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x7B */ { OP_RRA,     "RRA",            MODE_ABSOLUTE_Y_INDEXED, 3, 7, 0 },
     /* 0x7C */ { OP_NOP,     "NOP",            MODE_ABSOLUTE_X_INDEXED, 3, 4, 1 },
     /* 0x7D */ { OP_ADC,     "ADC",            MODE_ABSOLUTE_X_INDEXED, 3, 4, 1 },
     /* 0x7E */ { OP_ROR,     "ROR",            MODE_ABSOLUTE_X_INDEXED, 3, 7, 0 },
-    /* 0x7F */ { OP_INVALID, "INVALID OPCODE", MODE_INVALID,            0, 0, 0 },
+    /* 0x7F */ { OP_RRA,     "RRA",            MODE_ABSOLUTE_X_INDEXED, 3, 7, 0 },
 
     /* 0x80 */ { OP_NOP,     "NOP",            MODE_IMMEDIATE,          2, 2, 0 },
     /* 0x81 */ { OP_STA,     "STA",            MODE_X_INDEXED_INDIRECT, 2, 6, 0 },

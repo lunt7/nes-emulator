@@ -40,8 +40,8 @@ public:
         OP_NOP,
         OP_ORA,
         OP_PHA, OP_PHP, OP_PLA, OP_PLP,
-        OP_ROL, OP_ROR, OP_RTI, OP_RTS,
-        OP_SAX, OP_SBC, OP_SEC, OP_SED, OP_SEI, OP_SLO, OP_STA, OP_STX, OP_STY,
+        OP_RLA, OP_ROL, OP_ROR, OP_RRA, OP_RTI, OP_RTS,
+        OP_SAX, OP_SBC, OP_SEC, OP_SED, OP_SEI, OP_SLO, OP_SRE, OP_STA, OP_STX, OP_STY,
         OP_TAX, OP_TAY, OP_TSX, OP_TXA, OP_TXS, OP_TYA
     };
 
@@ -154,8 +154,10 @@ private:
     void PLA(void);
     void PLP(void);
 
+    void RLA(uint16_t addr);
     void ROL(uint16_t addr);
     void ROR(uint16_t addr);
+    void RRA(uint16_t addr);
     void RTI(void);
     void RTS(void);
 
@@ -165,6 +167,7 @@ private:
     void SED(void);
     void SEI(void);
     void SLO(uint16_t addr);
+    void SRE(uint16_t addr);
     void STA(uint16_t addr);
     void STX(uint16_t addr);
     void STY(uint16_t addr);
